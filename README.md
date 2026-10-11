@@ -42,7 +42,7 @@ Tek eksik: `allowed_user_ids` (aşağıda).
 sudo apt update && sudo apt install -y python3 python3-venv git
 
 # GitHub'dan ya da zip'ten:
-git clone https://github.com/MertBaranBila1/ajantik-node.git
+git clone https://github.com/baran1248/ajantik-node.git
 cd ajantik-node
 
 bash install.sh
