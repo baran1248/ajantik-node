@@ -85,10 +85,34 @@ if [ -t 0 ]; then
     esac
 
     # ---------------------------------------------------------------- #
-    # 2) Opsiyonel: bilgisayar acilinca otomatik baslatma (arka plan)
+    # 2) Opsiyonel: tam yonetim yetkisi (sifresiz sudo)
     # ---------------------------------------------------------------- #
     echo ""
-    echo "2) Bilgisayar acildiginda ajan otomatik (arka planda) baslasin mi? (E/h)"
+    echo "2) Ajanin bilgisayarda TAM yonetim yetkisi (sifresiz sudo) olsun mu? (E/h)"
+    echo "   Bu, ajanin root olarak her komutu calistirabilmesini saglar."
+    echo "   (Bot yine de tehlikeli komutlari Telegram'dan sana onaylatir.)"
+    read -r cevap || cevap="h"
+    case "$cevap" in
+        [Ee]*)
+            if echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/ajantik-full >/dev/null 2>&1; then
+                sudo chmod 440 /etc/sudoers.d/ajantik-full 2>/dev/null || true
+                echo "   OK: Tam yetki verildi (/etc/sudoers.d/ajantik-full)."
+            else
+                echo "   UYARI: Verilemedi. Elle dene:"
+                echo "   echo '$USER ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/ajantik-full"
+                echo "   sudo chmod 440 /etc/sudoers.d/ajantik-full"
+            fi
+            ;;
+        *)
+            echo "   Atlandi."
+            ;;
+    esac
+
+    # ---------------------------------------------------------------- #
+    # 3) Opsiyonel: bilgisayar acilinca otomatik baslatma (arka plan)
+    # ---------------------------------------------------------------- #
+    echo ""
+    echo "3) Bilgisayar acildiginda ajan otomatik (arka planda) baslasin mi? (E/h)"
     read -r cevap || cevap="h"
     case "$cevap" in
         [Ee]*)

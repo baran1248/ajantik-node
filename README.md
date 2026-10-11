@@ -220,6 +220,9 @@ Profiller:
 - **Gizlilik gerçeği:** Bulut API kullanırsan görev metinleri ve ajanın
   okuduğu dosya içerikleri o sağlayıcıya gider. Hiçbir şeyin dışarı
   çıkmamasını istiyorsan Ollama seçeneğini kullan.
+- **Tam yönetim yetkisi (şifresiz sudo):** Kurulumda 2. soruya E de, ya da
+  elle: `echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/ajantik-full`
+  Dikkat: botu ele geçiren biri de root olur; bilerek yap.
 
 ## Sorun giderme
 
