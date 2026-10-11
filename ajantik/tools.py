@@ -123,6 +123,7 @@ CONFIRM_PATTERNS = [
     r"\bcargo\s+install\b",
     r"\bmake\s+install\b",
     r"\bsystemctl\s+(?:start|stop|restart|reload|enable|disable)\b",
+    r"\b(?:shutdown|reboot|halt|poweroff)\b",
 ]
 _CONFIRM_RE = [re.compile(p, re.IGNORECASE) for p in CONFIRM_PATTERNS]
 
@@ -603,6 +604,152 @@ def tool_ask_user(args, ctx):
 
 
 # ---------------------------------------------------------------------- #
+# Ekran / GUI aracları (X11; oturum acikken calisir)
+# ---------------------------------------------------------------------- #
+
+def _gui_env():
+    """GUI islemleri icin ortam — servisten cagirilsa bile ekrana ulasir."""
+    env = dict(os.environ)
+    env.setdefault("DISPLAY", ":0")
+    xauth = env.get("XAUTHORITY") or os.path.expanduser("~/.Xauthority")
+    if os.path.exists(xauth):
+        env["XAUTHORITY"] = xauth
+    return env
+
+
+def tool_screenshot(args, ctx):
+    dest_dir = os.path.join(ctx.workspace, "outputs")
+    try:
+        os.makedirs(dest_dir, exist_ok=True)
+    except OSError as e:
+        return "HATA: outputs klasoru olusturulamadi: %s" % e
+    dest = os.path.join(
+        dest_dir, "ekran-%s.png" % datetime.now().strftime("%Y%m%d-%H%M%S")
+    )
+    env = _gui_env()
+    for cmd in (["scrot", dest], ["import", "-window", "root", dest]):
+        try:
+            p = subprocess.run(cmd, capture_output=True, timeout=30, env=env)
+            if p.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
+                ctx.status("Ekran goruntusu alindi")
+                res = ctx.tg.send_photo(ctx.chat_id, dest, caption=args.get("caption"))
+                return "%s | dosya: %s" % (res, dest)
+            if os.path.exists(dest):
+                try:
+                    os.remove(dest)
+                except OSError:
+                    pass
+        except Exception:
+            continue
+    return (
+        "HATA: ekran goruntusu alinamadi. Nedenler: scrot kurulu degil "
+        "(kur: sudo apt install scrot), ekran kilitli/kapali ya da kullanici "
+        "oturumu acik degil. Durumu kullaniciya soyle."
+    )
+
+
+def tool_open_app(args, ctx):
+    app = args.get("app")
+    target = args.get("target")
+    extra = args.get("extra")
+    if not app and not target:
+        return (
+            "HATA: 'app' (uygulama komutu, ornek: firefox) ya da "
+            "'target' (URL ya da dosya yolu) gerekli."
+        )
+    env = _gui_env()
+    try:
+        if app:
+            cmd = [str(app)]
+            if extra:
+                import shlex
+
+                cmd += shlex.split(str(extra))
+            subprocess.Popen(
+                cmd,
+                env=env,
+                cwd=os.path.expanduser("~"),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            return "Uygulama ekranda baslatildi: %s%s" % (
+                app,
+                (" " + str(extra)) if extra else "",
+            )
+        p = subprocess.Popen(
+            ["xdg-open", str(target)],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        try:
+            rc = p.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            rc = 0
+        if rc == 0:
+            return "Acildi: %s" % target
+        return (
+            "HATA: xdg-open '%s' hedefini acamadi "
+            "(uygulama kurulu olmayabilir)." % target
+        )
+    except FileNotFoundError:
+        return "HATA: komut bulunamadi (uygulama kurulu degil olabilir)."
+    except Exception as e:
+        return "HATA: acilamadi: %s" % e
+
+
+def tool_gui_action(args, ctx):
+    action = args.get("action")
+    if not action:
+        return "HATA: 'action' gerekli: type | key | click | activate_window | wait"
+    if action == "wait":
+        try:
+            secs = min(float(args.get("seconds") or 1), 30)
+        except (TypeError, ValueError):
+            secs = 1
+        time.sleep(secs)
+        return "Beklendi: %.1f sn." % secs
+    if action == "type":
+        text = args.get("text")
+        if not text or not isinstance(text, str):
+            return "HATA: type icin 'text' gerekli."
+        cmd = ["xdotool", "type", "--", text]
+    elif action == "key":
+        key = args.get("key")
+        if not key or not isinstance(key, str):
+            return "HATA: key icin 'key' gerekli (ornek: Return, ctrl+s, Escape)."
+        cmd = ["xdotool", "key", key]
+    elif action == "click":
+        x, y = args.get("x"), args.get("y")
+        if x is not None and y is not None:
+            cmd = ["xdotool", "mousemove", str(int(x)), str(int(y)), "click", "1"]
+        else:
+            cmd = ["xdotool", "click", "1"]
+    elif action == "activate_window":
+        w = args.get("window")
+        if not w or not isinstance(w, str):
+            return "HATA: activate_window icin 'window' (pencere adi/kismi) gerekli."
+        cmd = ["xdotool", "search", "--name", w, "windowactivate", "%@"]
+    else:
+        return "HATA: bilinmeyen action: %s" % action
+    try:
+        p = subprocess.run(cmd, capture_output=True, timeout=30, env=_gui_env())
+    except FileNotFoundError:
+        return "HATA: xdotool kurulu degil (kur: sudo apt install xdotool)."
+    except subprocess.TimeoutExpired:
+        return "HATA: islem zaman asimina ugradi."
+    if p.returncode != 0:
+        err = (p.stderr or b"").decode("utf-8", "replace").strip()
+        return "HATA: islem basarisiz. %s" % (
+            truncate(err, 300)
+            or "Ekran kilitli ya da pencere bulunamadi olabilir."
+        )
+    return "Tamam: %s uygulandi." % action
+
+
+# ---------------------------------------------------------------------- #
 # Kayit + yardimcilar
 # ---------------------------------------------------------------------- #
 
@@ -658,6 +805,21 @@ TOOLS = {
         "fn": tool_send_file,
         "desc": "Dosyayi Telegram sohbetine gonderir (50MB siniri).",
         "args": '{"path": "<dosya yolu>", "caption": "opsiyonel not"}',
+    },
+    "screenshot": {
+        "fn": tool_screenshot,
+        "desc": "Ekranin goruntusunu alir ve Telegram'a FOTOGRAF olarak gonderir.",
+        "args": '{"caption": "opsiyonel not"}',
+    },
+    "open_app": {
+        "fn": tool_open_app,
+        "desc": "Ekranda uygulama acar: app=uygulama komutu (firefox, libreoffice...) ya da target=URL/dosya.",
+        "args": '{"app": "firefox", "extra": "opsiyonel ek argumanlar"} ya da {"target": "https://..."}',
+    },
+    "gui_action": {
+        "fn": tool_gui_action,
+        "desc": "Ekrandaki uygulamayi klavye/fare ile kullanir (xdotool). type=yaz, key=tus, click=tikla, activate_window=pencereyi one getir, wait=bekle.",
+        "args": '{"action": "type", "text": "merhaba"} ya da {"action": "key", "key": "Return"}',
     },
     "download_file": {
         "fn": tool_download_file,

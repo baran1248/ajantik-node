@@ -109,10 +109,24 @@ if [ -t 0 ]; then
     esac
 
     # ---------------------------------------------------------------- #
-    # 3) Opsiyonel: bilgisayar acilinca otomatik baslatma (arka plan)
+    # 3) Ekran araclari (ekran goruntusu + uygulamalari kullanma)
     # ---------------------------------------------------------------- #
     echo ""
-    echo "3) Bilgisayar acildiginda ajan otomatik (arka planda) baslasin mi? (E/h)"
+    echo "3) Ekran araclari kuruluyor (scrot + xdotool; ekran goruntusu,"
+    echo "   uygulama acma ve uygulama icinde klavye/fare kontrolu icin)..."
+    if sudo apt install -y scrot xdotool >/dev/null 2>&1; then
+        echo "   OK: scrot + xdotool hazir."
+    else
+        echo "   UYARI: Kurulamadi (internet/sudo sorunu olabilir)."
+        echo "   Bot ekran isleri olmadan da calisir; sonradan kur:"
+        echo "   sudo apt install -y scrot xdotool"
+    fi
+
+    # ---------------------------------------------------------------- #
+    # 4) Opsiyonel: bilgisayar acilinca otomatik baslatma (arka plan)
+    # ---------------------------------------------------------------- #
+    echo ""
+    echo "4) Bilgisayar acildiginda ajan otomatik (arka planda) baslasin mi? (E/h)"
     read -r cevap || cevap="h"
     case "$cevap" in
         [Ee]*)

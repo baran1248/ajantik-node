@@ -11,7 +11,6 @@ DANGEROUS_PATTERNS = [
     r"\brm\s+(?:-{1,2}[a-zA-Z]+\s+)*?(?:/|/\*|~|~/\*|\$HOME)(?:\s|$)",  # rm -rf / , rm -rf ~
     r"\bmkfs\b",
     r"\bdd\b[^|;&]*\bof=/dev/",
-    r"\b(shutdown|reboot|halt|poweroff)\b",
     r"\binit\s+[06]\b",
     r":\(\)\s*\{.*\}\s*;\s*:",  # fork bomb
     r">\s*/dev/sd",

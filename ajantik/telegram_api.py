@@ -160,6 +160,24 @@ class TelegramAPI(object):
             return "HATA: Telegram gonderemedi: %s" % e
         return "Dosya Telegram'a gonderildi (%s)." % fmt_size(size)
 
+    def send_photo(self, chat_id, path, caption=None):
+        """Fotograf gonderir (Telegram'da resim olarak gorunur). Basari metni doner."""
+        try:
+            size = os.path.getsize(path)
+        except OSError as e:
+            return "HATA: dosya okunamadi: %s" % e
+        if size > MAX_UPLOAD:
+            return "HATA: dosya %s, Telegram siniri 50MB." % fmt_size(size)
+        try:
+            with open(path, "rb") as f:
+                data = {"chat_id": chat_id}
+                if caption:
+                    data["caption"] = truncate(caption, 1000)
+                self._call("sendPhoto", data=data, files={"photo": f}, timeout=600)
+        except TelegramError as e:
+            return "HATA: Telegram gonderemedi: %s" % e
+        return "Fotograf Telegram'a gonderildi (%s)." % fmt_size(size)
+
     def download(self, file_id, dest_dir):
         """Telegram'dan gelen dosyayi indirir. (path, boyut) doner."""
         info = self._call("getFile", {"file_id": file_id})
